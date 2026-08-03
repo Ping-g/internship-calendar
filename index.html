@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ตารางฝึกงาน</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 10px; background-color: #f8f9fa; }
+    #calendar { 
+      max-width: 100%; 
+      background: #fff; 
+      padding: 10px; 
+      border-radius: 12px; 
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+      min-height: 500px; 
+    }
+    #loading { text-align: center; margin-top: 50px; font-size: 16px; color: #666; font-weight: bold; }
+    .fc-header-toolbar { flex-wrap: wrap; justify-content: center !important; gap: 5px; }
+    .fc-toolbar-title { font-size: 1.1em !important; }
+  </style>
+</head>
+<body>
+
+  <div id="loading">⏳ กำลังโหลดตารางงาน...</div>
+  <div id="calendar" style="display:none;"></div>
+
+  <script>
+    const myLiffId = "2010930860-GyyQR9oj";
+
+    // ⚠️ นี่คือ Web App URL (/exec) จาก Apps Script — ถ้า deploy ใหม่แบบสร้าง
+    // "New deployment" (ไม่ใช่แก้ deployment เดิม) แล้วได้ URL ใหม่ ต้องมาแก้ตรงนี้ด้วย!
+    const webAppUrl = "https://script.google.com/macros/s/AKfycbyV96rQEBSW4NNJqqEVWgOFjQSaQ8c-hy84YRbGB1WEIoNWnSkQYI6GD6Cnq4Pc4jgT/exec";
+
+    function setStatus(msg) {
+      const el = document.getElementById('loading');
+      if (el) el.innerText = "⏳ " + msg;
+      console.log(msg);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      liff.init({ liffId: myLiffId })
+        .then(() => {
+          if (!liff.isLoggedIn()) {
+             liff.login();
+          } else {
+             loadDataFromGAS();
+          }
+        })
+        .catch((err) => {
+          console.error(err);
+          setStatus("❌ เกิดข้อผิดพลาด ไม่สามารถเปิด LIFF ได้: " + (err && err.message ? err.message : err));
+        });
+    });
+
+    // หน้านี้ไม่ได้ถูกโฮสต์บน Apps Script แล้ว (ไม่ถูกครอบด้วย iframe ของ GAS อีกต่อไป)
+    // จึงใช้ fetch() เรียก Web App แบบ cross-origin ได้ตามปกติ ไม่ติดปัญหา storage access บน iOS
+    function loadDataFromGAS() {
+      fetch(webAppUrl + "?action=getEvents")
+        .then(response => response.json())
+        .then(eventsData => {
+          renderCalendar(eventsData);
+        })
+        .catch(err => {
+          setStatus("❌ โหลดข้อมูลไม่สำเร็จ: " + err.message);
+        });
+    }
+
+    function renderCalendar(eventsData) {
+      document.getElementById('loading').style.display = 'none';
+      const calendarEl = document.getElementById('calendar');
+      calendarEl.style.display = 'block';
+
+      try {
+        const calendar = new FullCalendar.Calendar(calendarEl, {
+          initialView: 'dayGridMonth',
+          headerToolbar: {
+            left: 'prev,next',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek'
+          },
+          buttonText: { month: 'เดือน', week: 'สัปดาห์' },
+          locale: 'th',
+          events: eventsData || [],
+          height: '80vh',
+          nowIndicator: true
+        });
+        calendar.render();
+      } catch (e) {
+        alert("Render Error: " + e.message);
+      }
+    }
+  </script>
+</body>
+</html>
